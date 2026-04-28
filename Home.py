@@ -63,7 +63,7 @@ CLIENT_SECRET = st.secrets["google_auth"]["client_secret"]
 import streamlit as st  # まだインポートしていなければ
 
 # 金庫の中の「redirect_uri」というラベルの付いた値を取り出す
-redirect_uri = st.secrets["redirect_uri"]
+REDIRECT_URI = st.secrets["redirect_uri"]
 
 oauth2 = OAuth2Component(
     CLIENT_ID, CLIENT_SECRET, 
