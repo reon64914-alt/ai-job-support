@@ -59,7 +59,11 @@ db = firestore.client()
 # ==========================================
 CLIENT_ID = st.secrets["google_auth"]["client_id"]
 CLIENT_SECRET = st.secrets["google_auth"]["client_secret"]
-REDIRECT_URI = "http://localhost:8501"
+
+import streamlit as st  # まだインポートしていなければ
+
+# 金庫の中の「redirect_uri」というラベルの付いた値を取り出す
+redirect_uri = st.secrets["redirect_uri"]
 
 oauth2 = OAuth2Component(
     CLIENT_ID, CLIENT_SECRET, 
