@@ -1,0 +1,8 @@
+streamlit
+streamlit-oauth
+firebase-admin
+google-generativeai
+pandas
+plotly
+python-docx
+requests
