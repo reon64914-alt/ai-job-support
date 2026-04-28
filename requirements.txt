@@ -6,3 +6,5 @@ pandas
 plotly
 python-docx
 requests
+google-genai
+google-generativeai
