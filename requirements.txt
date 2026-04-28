@@ -8,3 +8,7 @@ python-docx
 requests
 google-genai
 google-generativeai
+audio-recorder-streamlit
+pillow
+numpy
+edge-tts
