@@ -47,7 +47,7 @@ except Exception:
     st.stop()
 
 # もし混雑エラーが続く場合は、ここを "gemini-1.5-flash" に変更してください
-TARGET_MODEL = "gemini-2.5-flash-lite"
+TARGET_MODEL = "gemini-3.1-flash-lite"
 VRM_DIR = "vrm_models"
 os.makedirs(VRM_DIR, exist_ok=True)
 vrm_files = [f for f in os.listdir(VRM_DIR) if f.endswith(".vrm")]
