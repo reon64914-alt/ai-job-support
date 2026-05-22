@@ -28,7 +28,7 @@ except Exception:
     st.error("⚠️ `.streamlit/secrets.toml` に APIキーを設定してください。")
     st.stop()
 
-TARGET_MODEL = "gemini-2.5-flash-lite"
+TARGET_MODEL = "gemini-3.1-flash-lite"
 
 # --- カスタムCSS ---
 st.markdown("""
