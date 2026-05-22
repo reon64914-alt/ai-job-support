@@ -28,7 +28,7 @@ except Exception:
     st.error("⚠️ `.streamlit/secrets.toml` に APIキーを設定してください。")
     st.stop()
 
-TARGET_MODEL = "gemini-2.5-flash-lite"
+TARGET_MODEL = "gemini-3.1-flash-lite"
 
 # --- セッション（記憶）の初期化 ---
 if "messages" not in st.session_state: st.session_state.messages = []
