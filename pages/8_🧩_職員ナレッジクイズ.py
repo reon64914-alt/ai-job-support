@@ -32,7 +32,7 @@ except Exception:
     st.error("⚠️ `.streamlit/secrets.toml` に APIキーを設定してください。")
     st.stop()
 
-TARGET_MODEL = "gemini-2.5-flash-lite"
+TARGET_MODEL = "gemini-3.1-flash-lite"
 
 # --- セッション初期化 ---
 # モード1：添削道場用
