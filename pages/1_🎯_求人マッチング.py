@@ -172,13 +172,13 @@ tab_match, tab_stat, tab_search = st.tabs(["🎯 AIマッチング＆面接対�
 # 🔍 タブ3：登録データ内検索機能（新規追加）
 # ==========================================
 with tab_search:
-    st.header("🔍 求人データベース内フリーワード検索")
-    st.write("登録されている全求人データから、事業所名や仕事内容に含まれる単語を直接検索します。")
-    st.info("※この機能はAIを通さずデータベースを直接検索するため、情報が創作されることはありません。")
+    st.header("🔍 AIアシスト付き データベース内検索")
+    st.write("「奈良市内の求人」「未経験でできる事務」のような話し言葉でも、AIがキーワードを抽出して正確にデータベースを検索します。")
+    st.info("※求人データ自体はデータベースから直接取得するため、架空の求人が作られることはありません。")
 
     col_s_input, col_s_btn = st.columns([3, 1])
     with col_s_input:
-        search_query = st.text_input("検索キーワードを入力（例：清掃、未経験、フルリモート など）", key="search_query_input")
+        search_query = st.text_input("検索キーワードや希望を入力（例：奈良市内の清掃、未経験OKの事務 など）", key="search_query_input")
     with col_s_btn:
         st.write(" ") # 高さ合わせ
         search_btn = st.button("🔍 検索を実行", use_container_width=True)
@@ -190,19 +190,51 @@ with tab_search:
         elif not search_query.strip():
             st.warning("⚠️ 検索キーワードを入力してください。")
         else:
-            with st.spinner("データベース内を検索中..."):
-                # データフレームの全項目を対象に、部分一致で検索する（大文字小文字を区別しない）
-                mask = df_all.astype(str).apply(lambda x: x.str.contains(search_query, case=False, na=False)).any(axis=1)
+            # 🌟 STEP1: AIに「キーワード」だけを抽出させる
+            with st.spinner("AIが検索条件を翻訳中..."):
+                try:
+                    kw_prompt = f"""以下のユーザーの入力から、求人検索に必要な「名詞（キーワード）」だけを抽出して、スペース区切りで出力してください。
+                    ルール：
+                    ・「の」「求人」「探して」「できる」などの不要な言葉は排除する。
+                    ・例：「奈良市内の求人」→「奈良市」
+                    ・例：「未経験でできる事務」→「未経験 事務」
+                    
+                    【入力】{search_query}
+                    【出力】"""
+                    
+                    kw_res = client.models.generate_content(
+                        model=TARGET_MODEL,
+                        contents=kw_prompt
+                    )
+                    # AIが出した答えをスペースで分割してリストにする
+                    extracted_keywords = kw_res.text.strip().split()
+                except Exception as e:
+                    # 万が一AIがエラーを出した場合は、入力された文字をそのまま使う
+                    extracted_keywords = search_query.split()
+
+            st.success(f"🤖 AI翻訳キーワード: **{', '.join(extracted_keywords)}**")
+
+            # 🌟 STEP2: 抽出したキーワードでデータベースを直接検索（AND検索）
+            with st.spinner("データベースを直接検索中..."):
+                # 最初は全データが対象（True）
+                mask = pd.Series([True] * len(df_all), index=df_all.index)
+                
+                # キーワードが複数ある場合、すべてを含むもの（AND検索）に絞り込む
+                for kw in extracted_keywords:
+                    # いずれかの列（行のどこか）にキーワードが含まれているかチェック
+                    kw_mask = df_all.astype(str).apply(lambda x: x.str.contains(kw, case=False, na=False)).any(axis=1)
+                    mask = mask & kw_mask # 条件を掛け合わせる
+                
                 res_df = df_all[mask]
                 
                 if res_df.empty:
                     st.session_state.search_result_df = None
-                    st.warning(f"「{search_query}」を含む求人は見つかりませんでした。")
+                    st.warning("条件に完全に一致する求人は見つかりませんでした。条件を少し減らして再検索してみてください。")
                 else:
                     st.session_state.search_result_df = res_df
-                    st.success(f"✨ {len(res_df)} 件の求人が見つかりました！")
+                    st.info(f"✨ {len(res_df)} 件の求人がヒットしました！")
 
-    # 検索結果が存在する場合、リストと詳細を表示
+    # --- 検索結果の表示エリア ---
     if st.session_state.search_result_df is not None:
         res_df = st.session_state.search_result_df
         
@@ -235,7 +267,6 @@ with tab_search:
                 st.write(f"**🔢 求人番号:** {detail.get('求人番号', '-')}")
             st.info(f"**【募集要項：仕事の内容】**\n\n{detail.get('仕事の内容', '-')}")
             st.markdown('</div>', unsafe_allow_html=True)
-
 
 with tab_stat:
     st.header("📊 現在の求人データベース統計")
