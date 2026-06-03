@@ -265,6 +265,7 @@ with tab_search:
                 st.write(f"**🏢 就業場所:** {detail.get('就業場所', '-')}")
                 st.write(f"**🗓️ 休日:** {detail.get('休日', '-')}")
                 st.write(f"**🔢 求人番号:** {detail.get('求人番号', '-')}")
+                st.write(f"**📅 受付年月日:** {detail.get('受付年月日', '-')}")
             st.info(f"**【募集要項：仕事の内容】**\n\n{detail.get('仕事の内容', '-')}")
             st.markdown('</div>', unsafe_allow_html=True)
 
@@ -460,6 +461,7 @@ with tab_match:
                 st.write(f"**🏢 就業場所:** {detail.get('就業場所', '-')}")
                 st.write(f"**🗓️ 休日:** {detail.get('休日', '-')}")
                 st.write(f"**🔢 求人番号:** {detail.get('求人番号', '-')}")
+                st.write(f"**📅 受付年月日:** {detail.get('受付年月日', '-')}")
             st.info(f"**【募集要項：仕事の内容】**\n\n{detail.get('仕事の内容', '-')}")
             st.markdown('</div>', unsafe_allow_html=True)
 
