@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-# ★ 変更点1：新しいパッケージのインポート方法に変更
 from google import genai
 from datetime import datetime, timedelta
 import firebase_admin
@@ -36,7 +35,6 @@ st.sidebar.success(f"🔌 接続先: {app.project_id}")
 # === 🔑 APIキーの読み込み ===
 try:
     api_key = st.secrets["GEMINI_API_KEY"]
-    # ★ 変更点2：Client（通信係）を作成する新しい書き方
     client = genai.Client(api_key=api_key)
 except Exception:
     st.error("⚠️ `.streamlit/secrets.toml` に APIキーを設定してください。")
@@ -55,6 +53,8 @@ def load_data_from_db():
 if 'ai_response' not in st.session_state: st.session_state.ai_response = None
 if 'filtered_df' not in st.session_state: st.session_state.filtered_df = None
 if 'interview_advice' not in st.session_state: st.session_state.interview_advice = {}
+# ★ 検索結果保存用のセッションを追加
+if 'search_result_df' not in st.session_state: st.session_state.search_result_df = None
 
 # === 🎨 カスタムCSS ===
 st.markdown("""
@@ -147,11 +147,12 @@ with st.sidebar:
                 
     st.markdown("---")
     if st.button("🔄 入力と結果をすべてリセット", use_container_width=True):
+        # ★ リセット対象に検索用の状態も追加
         keys_to_clear = [
-            'ai_response', 'filtered_df', 'interview_advice',
+            'ai_response', 'filtered_df', 'interview_advice', 'search_result_df',
             'f_location', 'f_type', 'f_wage_hourly', 'f_wage_monthly',
             'profile_disability', 'profile_strengths', 'profile_weaknesses',
-            'profile_training', 'profile_job'
+            'profile_training', 'profile_job', 'search_query_input'
         ]
         for key in keys_to_clear:
             if key in st.session_state:
@@ -160,10 +161,81 @@ with st.sidebar:
         st.session_state.ai_response = None
         st.session_state.filtered_df = None
         st.session_state.interview_advice = {}
+        st.session_state.search_result_df = None
         st.rerun()
 
-# === 🌟 画面を「マッチング」と「ダッシュボード」に分割 ===
-tab_match, tab_stat = st.tabs(["🎯 AIマッチング＆面接対策", "📊 求人データ・統計ダッシュボード"])
+# === 🌟 画面を3つのタブに分割 ===
+# ★ 第3のタブ「登録データ内検索」を追加
+tab_match, tab_stat, tab_search = st.tabs(["🎯 AIマッチング＆面接対策", "📊 求人データ・統計ダッシュボード", "🔍 登録データ内検索"])
+
+# ==========================================
+# 🔍 タブ3：登録データ内検索機能（新規追加）
+# ==========================================
+with tab_search:
+    st.header("🔍 求人データベース内フリーワード検索")
+    st.write("登録されている全求人データから、事業所名や仕事内容に含まれる単語を直接検索します。")
+    st.info("※この機能はAIを通さずデータベースを直接検索するため、情報が創作されることはありません。")
+
+    col_s_input, col_s_btn = st.columns([3, 1])
+    with col_s_input:
+        search_query = st.text_input("検索キーワードを入力（例：清掃、未経験、フルリモート など）", key="search_query_input")
+    with col_s_btn:
+        st.write(" ") # 高さ合わせ
+        search_btn = st.button("🔍 検索を実行", use_container_width=True)
+
+    if search_btn:
+        df_all = load_data_from_db()
+        if df_all.empty:
+            st.error("⚠️ データベースに求人が登録されていません。")
+        elif not search_query.strip():
+            st.warning("⚠️ 検索キーワードを入力してください。")
+        else:
+            with st.spinner("データベース内を検索中..."):
+                # データフレームの全項目を対象に、部分一致で検索する（大文字小文字を区別しない）
+                mask = df_all.astype(str).apply(lambda x: x.str.contains(search_query, case=False, na=False)).any(axis=1)
+                res_df = df_all[mask]
+                
+                if res_df.empty:
+                    st.session_state.search_result_df = None
+                    st.warning(f"「{search_query}」を含む求人は見つかりませんでした。")
+                else:
+                    st.session_state.search_result_df = res_df
+                    st.success(f"✨ {len(res_df)} 件の求人が見つかりました！")
+
+    # 検索結果が存在する場合、リストと詳細を表示
+    if st.session_state.search_result_df is not None:
+        res_df = st.session_state.search_result_df
+        
+        st.markdown("### 📋 検索結果一覧")
+        # 必要な項目だけ絞って一覧表示
+        display_columns = ['事業所名', '職種', '就業場所', '雇用形態']
+        available_columns = [col for col in display_columns if col in res_df.columns]
+        st.dataframe(res_df[available_columns].fillna('未登録'), use_container_width=True)
+
+        st.markdown("---")
+        st.markdown("### 🏢 求人の詳細確認")
+        st.write("一覧から気になる求人を選択すると、元のデータベースに登録されている詳細情報をそのまま表示します。")
+        
+        search_job_options = res_df['事業所名'].fillna('非公開').astype(str) + " / " + res_df['職種'].fillna('不明').astype(str)
+        selected_search_job = st.selectbox("詳しく調べたい求人を選択：", ["選択してください..."] + search_job_options.tolist(), key="select_search_detail")
+        
+        if selected_search_job != "選択してください...":
+            detail = res_df[search_job_options == selected_search_job].iloc[0]
+            
+            st.markdown(f'<div class="job-detail-box">', unsafe_allow_html=True)
+            st.markdown(f"#### 📂 {selected_search_job}")
+            col_a, col_b = st.columns(2)
+            with col_a:
+                st.write(f"**💰 賃金:** {detail.get('賃金', '-')}")
+                st.write(f"**⏰ 就業時間:** {detail.get('就業時間', '-')}")
+                st.write(f"**👤 雇用形態:** {detail.get('雇用形態', '-')}")
+            with col_b:
+                st.write(f"**🏢 就業場所:** {detail.get('就業場所', '-')}")
+                st.write(f"**🗓️ 休日:** {detail.get('休日', '-')}")
+                st.write(f"**🔢 求人番号:** {detail.get('求人番号', '-')}")
+            st.info(f"**【募集要項：仕事の内容】**\n\n{detail.get('仕事の内容', '-')}")
+            st.markdown('</div>', unsafe_allow_html=True)
+
 
 with tab_stat:
     st.header("📊 現在の求人データベース統計")
@@ -260,7 +332,6 @@ with tab_match:
 ※重要：求人を提案する際は、データにある【事業所名】と【職種】を一言一句そのまま正確に記載してください（省略や言い換えは厳禁）。
 【データ】\n{df_f.head(50).to_csv(index=False)}"""
 
-                    # ★ 変更点3：client経由でモデルを指定して実行する形に変更（メインの分析）
                     res = client.models.generate_content(
                         model=TARGET_MODEL,
                         contents=prompt
@@ -367,7 +438,6 @@ with tab_match:
                     with st.spinner("要約を作成中..."):
                         try:
                             sum_prompt = f"以下の仕事内容を、専門用語を避けて【簡潔な3行の箇条書き】に要約してください。\n\n{detail.get('仕事の内容', '-')}"
-                            # ★ 変更点3：client経由で実行（要約）
                             summary_res = client.models.generate_content(
                                 model=TARGET_MODEL,
                                 contents=sum_prompt
@@ -383,7 +453,6 @@ with tab_match:
                             q_prompt = f"""以下の求人と利用者の特性に基づき、面接で聞かれそうな質問3つと、利用者本人が答える際の具体的な回答例を、前向きな表現で作成してください。
 【求人内容】{detail.get('仕事の内容')}
 【利用者の苦手・配慮】{weaknesses}"""
-                            # ★ 変更点3：client経由で実行（面接対策）
                             q_res = client.models.generate_content(
                                 model=TARGET_MODEL,
                                 contents=q_prompt
