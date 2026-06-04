@@ -177,7 +177,16 @@ with col_avatar:
         <head>
             <meta charset="utf-8">
             <style>
-                body {{ margin: 0; overflow: hidden; background-color: #F0F4F8; border-radius: 10px; cursor: default; }}
+                body {{ margin: 0; 
+                    overflow: hidden; 
+                    background-color: #F0F4F8; 
+                    /* 👇 ここから背景画像の設定を追加 */
+                    background-image: url('https://images.unsplash.com/photo-1497366216548-37526070297c?q=80&w=1000&auto=format&fit=crop');
+                    background-size: cover;
+                    background-position: center;
+                    /* 👆 ここまで */
+                    border-radius: 10px; 
+                    cursor: default; }}
                 #canvas-container {{ width: 100%; height: 500px; }}
                 #play-button {{
                     position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
