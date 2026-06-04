@@ -343,7 +343,29 @@ with tab_match:
                 st.session_state.filtered_df = df_f
                 
                 try:
+                    # ★ 追加：受付年月日を日付データとして認識させる
+                    if '受付年月日' in df_f.columns:
+                        df_f['date_calc'] = pd.to_datetime(df_f['受付年月日'], errors='coerce')
+
                     if "①" in mode:
+                        # 【モード①：最新求人マッチング】
+                        if 'date_calc' in df_f.columns:
+                            # 1. 日付が新しい順（降順）に並び替え
+                            df_mode1 = df_f.sort_values(by='date_calc', ascending=False)
+                            
+                            # 2. 直近1ヶ月（約30日）以内のデータに絞る
+                            one_month_ago = pd.Timestamp.now() - pd.Timedelta(days=30)
+                            df_mode1 = df_mode1[df_mode1['date_calc'] >= one_month_ago]
+                            
+                            # ※もし1ヶ月以内の求人が少なすぎる場合は、最新50件をそのまま使うなどのフォールバック
+                            if len(df_mode1) < 5:
+                                df_mode1 = df_f.sort_values(by='date_calc', ascending=False)
+                        else:
+                            df_mode1 = df_f
+                            
+                        # 不要な計算用列を消してAIに渡す
+                        data_to_pass = df_mode1.drop(columns=['date_calc'], errors='ignore').head(50)
+                        
                         prompt = f"""あなたは就労移行支援事業所のベテラン支援員です。
 【利用者情報】特性:{disability}, 強み:{strengths}, 弱み:{weaknesses}, 訓練:{current_training}, 希望:{desired_job}
 【指示】
@@ -352,8 +374,14 @@ with tab_match:
 3. 各求人について、【AIマッチング度（例：85%）】の数値を算出して記載し、強みの活かし方と配慮事項を解説してください。
 4. 最後に具体的な支援アドバイスを添えてください。
 ※重要：求人を提案する際は、データにある【事業所名】と【職種】を一言一句そのまま正確に記載してください（省略や言い換えは厳禁）。
-【データ】\n{df_f.head(50).to_csv(index=False)}"""
+【データ】\n{data_to_pass.to_csv(index=False)}"""
+
                     else:
+                        # 【モード②：適職診断・アドバイス】
+                        # 全データから傾向を見るため、上から50件ではなく「ランダムに50件」抽出して多様な業種をAIに見せる
+                        df_mode2 = df_f.sample(n=min(50, len(df_f)))
+                        data_to_pass = df_mode2.drop(columns=['date_calc'], errors='ignore')
+
                         prompt = f"""あなたは就労移行支援のプロフェッショナルなキャリアコンサルタントです。
 【利用者情報】特性:{disability}, 強み:{strengths}, 弱み:{weaknesses}, 訓練:{current_training}, 希望:{desired_job}
 【指示】
@@ -362,7 +390,7 @@ with tab_match:
 3. 根拠として実在の求人を3件厳選し、各求人に【AIマッチング度（例：85%）】の数値を算出して添えながら解説してください。
 4. 適職に就くため、明日から事業所で追加・重点化すべき訓練アクションプランを提案してください。
 ※重要：求人を提案する際は、データにある【事業所名】と【職種】を一言一句そのまま正確に記載してください（省略や言い換えは厳禁）。
-【データ】\n{df_f.head(50).to_csv(index=False)}"""
+【データ】\n{data_to_pass.to_csv(index=False)}"""
 
                     res = client.models.generate_content(
                         model=TARGET_MODEL,
