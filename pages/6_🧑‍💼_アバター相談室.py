@@ -171,22 +171,26 @@ with col_avatar:
         vrm_data_uri = get_base64_vrm(vrm_path)
         audio_data_uri = st.session_state.latest_audio_b64
         
+        # 👇 先ほどGitHubでコピーした「Raw URL」をここに貼り付けます
+        bg_img_url = "https://github.com/reon64914-alt/ai-job-support/blob/main/img/vrm_back.jpg"
+        
         html_code = f"""
         <!DOCTYPE html>
         <html>
         <head>
             <meta charset="utf-8">
             <style>
-                body {{ margin: 0; 
+                body {{ 
+                    margin: 0; 
                     overflow: hidden; 
-                    background-color: #F0F4F8; 
-                    /* 👇 ここから背景画像の設定を追加 */
-                    background-image: url('https://images.unsplash.com/photo-1497366216548-37526070297c?q=80&w=1000&auto=format&fit=crop');
+                    /* 👇 URLを直接指定して背景にする */
+                    background-image: url('{bg_img_url}');
                     background-size: cover;
                     background-position: center;
-                    /* 👆 ここまで */
+                    background-color: #F0F4F8; /* 画像が読み込めなかった時の予備の色 */
                     border-radius: 10px; 
-                    cursor: default; }}
+                    cursor: default; 
+                }}
                 #canvas-container {{ width: 100%; height: 500px; }}
                 #play-button {{
                     position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
