@@ -169,12 +169,15 @@ with st.sidebar:
 tab_match, tab_stat, tab_search = st.tabs(["🎯 AIマッチング＆面接対策", "📊 求人データ・統計ダッシュボード", "🔍 登録データ内検索"])
 
 # ==========================================
-# 🔍 タブ3：登録データ内検索機能（新規追加）
+# 🔍 タブ3：登録データ内検索機能（ハイブリッド＆期間選択版）
 # ==========================================
 with tab_search:
     st.header("🔍 AIアシスト付き データベース内検索")
     st.write("「奈良市内の求人」「未経験でできる事務」のような話し言葉でも、AIがキーワードを抽出して正確にデータベースを検索します。")
     st.info("※求人データ自体はデータベースから直接取得するため、架空の求人が作られることはありません。")
+
+    # ★ 追加：検索対象の期間を選択するラジオボタン
+    search_period = st.radio("📅 検索対象の期間を選択：", ["すべてのデータから検索", "直近1ヶ月以内のデータから検索"], horizontal=True)
 
     col_s_input, col_s_btn = st.columns([3, 1])
     with col_s_input:
@@ -185,8 +188,18 @@ with tab_search:
 
     if search_btn:
         df_all = load_data_from_db()
+        
+        # ★ 追加：期間での事前絞り込み処理
+        if not df_all.empty and "1ヶ月以内" in search_period:
+            if '受付年月日' in df_all.columns:
+                df_all['date_calc'] = pd.to_datetime(df_all['受付年月日'], errors='coerce')
+                one_month_ago = pd.Timestamp.now() - pd.Timedelta(days=30)
+                # 直近30日以内のデータだけを残す
+                df_all = df_all[df_all['date_calc'] >= one_month_ago]
+
         if df_all.empty:
-            st.error("⚠️ データベースに求人が登録されていません。")
+            st.error("⚠️ データベースに求人が登録されていないか、「直近1ヶ月以内」の条件に該当する求人が0件です。")
+            st.session_state.search_result_df = None
         elif not search_query.strip():
             st.warning("⚠️ 検索キーワードを入力してください。")
         else:
