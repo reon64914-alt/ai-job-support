@@ -172,7 +172,7 @@ with col_avatar:
         audio_data_uri = st.session_state.latest_audio_b64
         
         # 👇 先ほどGitHubでコピーした「Raw URL」をここに貼り付けます
-        bg_img_url = "https://github.com/reon64914-alt/ai-job-support/blob/main/img/vrm_back.jpg"
+        bg_img_url = "https://raw.githubusercontent.com/reon64914-alt/ai-job-support/main/img/vrm_back.jpg"
         
         html_code = f"""
         <!DOCTYPE html>
