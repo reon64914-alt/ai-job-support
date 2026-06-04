@@ -309,13 +309,25 @@ with col_avatar:
         audio_data_uri = st.session_state.rp_latest_audio_b64
         target_expr = case_data["expression"]
         
+       # 👇 画像のURLを指定します（先ほどコピーしたご自身のURLに書き換えてください）
+        bg_img_url = "https://raw.githubusercontent.com/reon64914-alt/ai-job-support/main/img/vrm_back.jpg"
+
         html_code = f"""
         <!DOCTYPE html>
         <html>
         <head>
             <meta charset="utf-8">
             <style>
-                body {{ margin: 0; overflow: hidden; background-color: #F0F4F8; border-radius: 10px; }}
+                body {{ 
+                    margin: 0; 
+                    overflow: hidden; 
+                    /* 👇 URLを直接指定して背景にする */
+                    background-image: url('{bg_img_url}');
+                    background-size: cover;
+                    background-position: center;
+                    background-color: #F0F4F8; /* 予備の色 */
+                    border-radius: 10px; 
+                }}
                 #canvas-container {{ width: 100%; height: 500px; }}
                 #play-button {{
                     position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
