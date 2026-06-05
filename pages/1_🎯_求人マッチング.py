@@ -283,7 +283,7 @@ with tab_search:
             st.markdown('</div>', unsafe_allow_html=True)
 
 with tab_stat:
-    st.header("📊 現在の求人データベース統計")
+    st.header("📊 現在の求人データベース統計＆AI分析")
     st.write("チーム内での市場トレンド共有や、開拓方針の検討にご活用ください。")
     
     df_all = load_data_from_db()
@@ -291,11 +291,9 @@ with tab_stat:
     if df_all.empty:
         st.warning("現在、データベースに求人が登録されていません。左の「管理者メニュー」からCSVを同期してください。")
     else:
-        # ★ 追加：期間切り替えスイッチ
         stat_period = st.radio("📅 統計データを集計する期間：", ["すべてのデータ", "直近1ヶ月以内のデータ"], horizontal=True)
         
         df_stat = df_all.copy()
-        # 期間で絞り込み
         if "1ヶ月以内" in stat_period and '受付年月日' in df_stat.columns:
             df_stat['date_calc'] = pd.to_datetime(df_stat['受付年月日'], errors='coerce')
             one_month_ago = pd.Timestamp.now() - pd.Timedelta(days=30)
@@ -310,15 +308,12 @@ with tab_stat:
             
             if '賃金' in df_stat.columns:
                 wage_s = df_stat['賃金'].astype(str).str.replace(',', '', regex=False).str.extract(r'(\d+)').astype(float)[0]
-                
-                # 時給の計算
                 hourly_wages = wage_s[(wage_s >= 800) & (wage_s < 10000)].dropna()
+                monthly_wages = wage_s[wage_s >= 100000].dropna()
+                
                 if not hourly_wages.empty:
                     col_s2.metric("💰 平均時給 (目安)", f"{int(hourly_wages.mean()):,} 円")
                     col_s2.caption(f"🔻最低: {int(hourly_wages.min()):,} 円 / 🔺最高: {int(hourly_wages.max()):,} 円")
-                
-                # 月給の計算
-                monthly_wages = wage_s[wage_s >= 100000].dropna()
                 if not monthly_wages.empty:
                     col_s3.metric("💴 平均月給 (目安)", f"{int(monthly_wages.mean()):,} 円")
                     col_s3.caption(f"🔻最低: {int(monthly_wages.min()):,} 円 / 🔺最高: {int(monthly_wages.max()):,} 円")
@@ -326,25 +321,98 @@ with tab_stat:
             st.markdown("---")
             
             # --- 2. グラフ群 ---
-            # 職種別 ＆ エリア別
             col_g1, col_g2 = st.columns(2)
             with col_g1:
-                # CSVに「職種」または「産業」があればグラフ化
                 target_col = '職種' if '職種' in df_stat.columns else '産業' if '産業' in df_stat.columns else None
                 if target_col:
                     st.subheader(f"💼 {target_col}別の求人数 (上位10件)")
-                    # 件数が多い順に並べて表示
                     st.bar_chart(df_stat[target_col].value_counts().head(10))
-            
             with col_g2:
                 if '就業場所' in df_stat.columns:
                     st.subheader("📍 勤務地エリア (上位10件)")
                     st.bar_chart(df_stat['就業場所'].value_counts().head(10))
             
-            # 雇用形態
             if '雇用形態' in df_stat.columns:
                 st.subheader("👤 雇用形態の割合")
                 st.bar_chart(df_stat['雇用形態'].value_counts())
+
+            st.markdown("---")
+            
+            # ==========================================
+            # 🤖 新機能：ダッシュボードAI分析（参謀機能）
+            # ==========================================
+            st.header("🤖 AI データ分析＆戦略アドバイザー")
+            st.write("上記の集計データをもとに、AIが支援現場に役立つインサイト（洞察）を生成します。")
+
+            # AIへ渡すための「集計データのテキスト化」
+            summary_lines = [f"■ 検索対象期間: {stat_period}", f"■ 総求人数: {len(df_stat)}件"]
+            if not hourly_wages.empty: summary_lines.append(f"■ 時給: 平均{int(hourly_wages.mean())}円 (最低{int(hourly_wages.min())}〜最高{int(hourly_wages.max())}円)")
+            if not monthly_wages.empty: summary_lines.append(f"■ 月給: 平均{int(monthly_wages.mean())}円 (最低{int(monthly_wages.min())}〜最高{int(monthly_wages.max())}円)")
+            if target_col: summary_lines.append(f"■ 上位職種(件数): {df_stat[target_col].value_counts().head(5).to_dict()}")
+            if '就業場所' in df_stat.columns: summary_lines.append(f"■ 上位エリア(件数): {df_stat['就業場所'].value_counts().head(5).to_dict()}")
+            if '雇用形態' in df_stat.columns: summary_lines.append(f"■ 雇用形態(件数): {df_stat['雇用形態'].value_counts().to_dict()}")
+            stats_summary_text = "\n".join(summary_lines)
+
+            # セッションに結果を保持
+            if 'ai_trend_report' not in st.session_state: st.session_state.ai_trend_report = None
+            if 'ai_sales_strategy' not in st.session_state: st.session_state.ai_sales_strategy = None
+
+            tab_trend, tab_sales = st.tabs(["📝 ①市場トレンド＆チャンス分析", "💼 ②企業開拓（営業）ターゲティング支援"])
+
+            with tab_trend:
+                st.markdown("#### 今月の市場トレンドと異常値（チャンス）の発見")
+                st.write("現在のデータから、支援員が朝礼で共有すべきトレンドや、見落としがちな狙い目求人をAIが抽出します。")
+                if st.button("✨ トレンド＆チャンス分析を実行", use_container_width=True):
+                    with st.spinner("AIが統計データを分析中..."):
+                        try:
+                            trend_prompt = f"""あなたは就労移行支援のプロフェッショナルなマーケター兼データアナリストです。
+                            以下の「現在の求人データベースの統計情報」をもとに、以下の2つのセクションで構成されたレポートを作成してください。
+
+                            1. 【市場トレンドと今後の訓練方針】
+                            データから読み取れる職種、賃金、エリアなどの傾向を分析し、支援員が朝礼で共有できるような解説をしてください。「〇〇の求人が多いため、今は〇〇の訓練を重点的に行うとマッチングしやすい」といった具体的なアドバイスを必ず入れてください。
+                            
+                            2. 【異常値（チャンス）の発見アラート】
+                            データの中で「ニッチだが狙い目になりそうな部分」や「特異な点」を1〜2つ見つけ出し、支援員が見落としがちなチャンスとして指摘してください。
+
+                            【統計データ】\n{stats_summary_text}"""
+                            
+                            res_trend = client.models.generate_content(model=TARGET_MODEL, contents=trend_prompt)
+                            st.session_state.ai_trend_report = res_trend.text
+                        except Exception as e:
+                            st.error(f"分析エラー: {e}")
+                
+                if st.session_state.ai_trend_report:
+                    st.success("💡 分析完了！")
+                    st.markdown(f'<div class="result-card">{st.session_state.ai_trend_report}</div>', unsafe_allow_html=True)
+
+            with tab_sales:
+                st.markdown("#### 今いる利用者の特性に合わせた企業開拓戦略")
+                st.write("事業所にいる利用者の大まかな特性を入力すると、AIがデータと照らし合わせて具体的な開拓・営業ルートを提案します。")
+                user_chars = st.text_area("事業所の利用者の傾向（例：PC入力が得意な人が多い、静かな環境を好む人が3名いる、など）", height=100)
+                
+                if st.button("🚀 開拓戦略を生成", use_container_width=True):
+                    if not user_chars.strip():
+                        st.warning("利用者の傾向を入力してください。")
+                    else:
+                        with st.spinner("AIが営業戦略を立案中..."):
+                            try:
+                                sales_prompt = f"""あなたは就労移行支援事業所の敏腕営業戦略アドバイザーです。
+                                以下の「現在の求人データベース統計」と、支援員が入力した「現在の事業所の利用者特性」を比較分析してください。
+                                
+                                データ上で不足している（＝自ら開拓すべき）領域や、逆にデータ上で需要が高い（＝アプローチしやすい）領域を推測し、具体的に「どのような企業」に、「どのような提案（例：業務の切り出し、実習の受け入れ等）」を持って営業・開拓を行うべきか、戦略を3つ提案してください。
+
+                                【現在の事業所の利用者特性】: {user_chars}
+                                【現在の統計データ】\n{stats_summary_text}"""
+                                
+                                res_sales = client.models.generate_content(model=TARGET_MODEL, contents=sales_prompt)
+                                st.session_state.ai_sales_strategy = res_sales.text
+                            except Exception as e:
+                                st.error(f"戦略生成エラー: {e}")
+
+                if st.session_state.ai_sales_strategy:
+                    st.success("💡 戦略立案完了！")
+                    st.markdown(f'<div class="result-card">{st.session_state.ai_sales_strategy}</div>', unsafe_allow_html=True)
+
 with tab_match:
     st.markdown("### 👤 利用者プロファイルの入力")
     with st.container(border=True):
