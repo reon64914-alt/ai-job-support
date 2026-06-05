@@ -285,31 +285,59 @@ with tab_search:
 with tab_stat:
     st.header("📊 現在の求人データベース統計")
     st.write("チーム内での市場トレンド共有や、開拓方針の検討にご活用ください。")
+    
     df_all = load_data_from_db()
+    
     if df_all.empty:
         st.warning("現在、データベースに求人が登録されていません。左の「管理者メニュー」からCSVを同期してください。")
     else:
-        col_s1, col_s2, col_s3 = st.columns(3)
-        col_s1.metric("📦 総求人登録数", f"{len(df_all)} 件")
-        if '賃金' in df_all.columns:
-            wage_s = df_all['賃金'].astype(str).str.replace(',', '', regex=False).str.extract(r'(\d+)').astype(float)[0]
-            hourly_wages = wage_s[(wage_s >= 800) & (wage_s < 10000)].dropna()
-            monthly_wages = wage_s[wage_s >= 100000].dropna()
-            if not hourly_wages.empty:
-                col_s2.metric("💰 平均時給 (目安)", f"{int(hourly_wages.mean()):,} 円")
-            if not monthly_wages.empty:
-                col_s3.metric("💴 平均月給 (目安)", f"{int(monthly_wages.mean()):,} 円")
-        st.markdown("---")
-        col_g1, col_g2 = st.columns(2)
-        with col_g1:
-            if '雇用形態' in df_all.columns:
-                st.subheader("👤 雇用形態別の求人数")
-                st.bar_chart(df_all['雇用形態'].value_counts())
-        with col_g2:
-            if '就業場所' in df_all.columns:
-                st.subheader("📍 主要な勤務エリア (上位10件)")
-                st.bar_chart(df_all['就業場所'].value_counts().head(10))
-
+        # ★ 追加：期間切り替えスイッチ
+        stat_period = st.radio("📅 統計データを集計する期間：", ["すべてのデータ", "直近1ヶ月以内のデータ"], horizontal=True)
+        
+        df_stat = df_all.copy()
+        # 期間で絞り込み
+        if "1ヶ月以内" in stat_period and '受付年月日' in df_stat.columns:
+            df_stat['date_calc'] = pd.to_datetime(df_stat['受付年月日'], errors='coerce')
+            one_month_ago = pd.Timestamp.now() - pd.Timedelta(days=30)
+            df_stat = df_stat[df_stat['date_calc'] >= one_month_ago]
+            
+        if df_stat.empty:
+            st.info("指定された期間の求人データがありません。")
+        else:
+            # --- 1. 基本指標（KPI）---
+            col_s1, col_s2, col_s3 = st.columns(3)
+            col_s1.metric("📦 総求人数", f"{len(df_stat)} 件")
+            if '賃金' in df_stat.columns:
+                wage_s = df_stat['賃金'].astype(str).str.replace(',', '', regex=False).str.extract(r'(\d+)').astype(float)[0]
+                hourly_wages = wage_s[(wage_s >= 800) & (wage_s < 10000)].dropna()
+                monthly_wages = wage_s[wage_s >= 100000].dropna()
+                if not hourly_wages.empty:
+                    col_s2.metric("💰 平均時給 (目安)", f"{int(hourly_wages.mean()):,} 円")
+                if not monthly_wages.empty:
+                    col_s3.metric("💴 平均月給 (目安)", f"{int(monthly_wages.mean()):,} 円")
+            
+            st.markdown("---")
+            
+            # --- 2. グラフ群 ---
+            # 職種別 ＆ エリア別
+            col_g1, col_g2 = st.columns(2)
+            with col_g1:
+                # CSVに「職種」または「産業」があればグラフ化
+                target_col = '職種' if '職種' in df_stat.columns else '産業' if '産業' in df_stat.columns else None
+                if target_col:
+                    st.subheader(f"💼 {target_col}別の求人数 (上位10件)")
+                    # 件数が多い順に並べて表示
+                    st.bar_chart(df_stat[target_col].value_counts().head(10))
+            
+            with col_g2:
+                if '就業場所' in df_stat.columns:
+                    st.subheader("📍 勤務地エリア (上位10件)")
+                    st.bar_chart(df_stat['就業場所'].value_counts().head(10))
+            
+            # 雇用形態
+            if '雇用形態' in df_stat.columns:
+                st.subheader("👤 雇用形態の割合")
+                st.bar_chart(df_stat['雇用形態'].value_counts())
 with tab_match:
     st.markdown("### 👤 利用者プロファイルの入力")
     with st.container(border=True):
