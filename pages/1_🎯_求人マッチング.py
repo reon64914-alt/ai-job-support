@@ -307,14 +307,21 @@ with tab_stat:
             # --- 1. 基本指標（KPI）---
             col_s1, col_s2, col_s3 = st.columns(3)
             col_s1.metric("📦 総求人数", f"{len(df_stat)} 件")
+            
             if '賃金' in df_stat.columns:
                 wage_s = df_stat['賃金'].astype(str).str.replace(',', '', regex=False).str.extract(r'(\d+)').astype(float)[0]
+                
+                # 時給の計算
                 hourly_wages = wage_s[(wage_s >= 800) & (wage_s < 10000)].dropna()
-                monthly_wages = wage_s[wage_s >= 100000].dropna()
                 if not hourly_wages.empty:
                     col_s2.metric("💰 平均時給 (目安)", f"{int(hourly_wages.mean()):,} 円")
+                    col_s2.caption(f"🔻最低: {int(hourly_wages.min()):,} 円 / 🔺最高: {int(hourly_wages.max()):,} 円")
+                
+                # 月給の計算
+                monthly_wages = wage_s[wage_s >= 100000].dropna()
                 if not monthly_wages.empty:
                     col_s3.metric("💴 平均月給 (目安)", f"{int(monthly_wages.mean()):,} 円")
+                    col_s3.caption(f"🔻最低: {int(monthly_wages.min()):,} 円 / 🔺最高: {int(monthly_wages.max()):,} 円")
             
             st.markdown("---")
             
