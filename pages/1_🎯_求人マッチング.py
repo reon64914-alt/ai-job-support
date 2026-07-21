@@ -292,7 +292,7 @@ with tab_stat:
         st.warning("現在、データベースに求人が登録されていません。左の「管理者メニュー」からCSVを同期してください。")
     else:
         # ▼▼▼ 追加箇所: 地域を選択するリスト ▼▼▼
-        stat_region = st.selectbox("📍 統計データを集計する地域：", ["すべてのデータ", "大阪", "京都", "なら", "それ以外"])
+        stat_region = st.selectbox("📍 統計データを集計する地域：", ["すべてのデータ", "大阪", "京都", "奈良", "それ以外"])
         # ▲▲▲ 追加箇所ここまで ▲▲▲
         
         stat_period = st.radio("📅 統計データを集計する期間：", ["すべてのデータ", "直近1ヶ月以内のデータ"], horizontal=True)
@@ -306,9 +306,9 @@ with tab_stat:
             elif stat_region == "京都":
                 df_stat = df_stat[df_stat['就業場所'].fillna('').str.contains('京都')]
             elif stat_region == "なら":
-                df_stat = df_stat[df_stat['就業場所'].fillna('').str.contains('なら|奈良')]
+                df_stat = df_stat[df_stat['就業場所'].fillna('').str.contains('奈良')]
             elif stat_region == "それ以外":
-                df_stat = df_stat[~df_stat['就業場所'].fillna('').str.contains('大阪|京都|なら|奈良')]
+                df_stat = df_stat[~df_stat['就業場所'].fillna('').str.contains('大阪|京都|奈良')]
         # ▲▲▲ 追加箇所ここまで ▲▲▲
 
         if "1ヶ月以内" in stat_period and '受付年月日' in df_stat.columns:
