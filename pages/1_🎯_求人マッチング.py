@@ -291,17 +291,33 @@ with tab_stat:
     if df_all.empty:
         st.warning("現在、データベースに求人が登録されていません。左の「管理者メニュー」からCSVを同期してください。")
     else:
+        # ▼▼▼ 追加箇所: 地域を選択するリスト ▼▼▼
+        stat_region = st.selectbox("📍 統計データを集計する地域：", ["すべてのデータ", "大阪", "京都", "なら", "それ以外"])
+        # ▲▲▲ 追加箇所ここまで ▲▲▲
+        
         stat_period = st.radio("📅 統計データを集計する期間：", ["すべてのデータ", "直近1ヶ月以内のデータ"], horizontal=True)
         
         df_stat = df_all.copy()
+
+        # ▼▼▼ 追加箇所: 選択された地域ごとのデータ絞り込み処理 ▼▼▼
+        if '就業場所' in df_stat.columns:
+            if stat_region == "大阪":
+                df_stat = df_stat[df_stat['就業場所'].fillna('').str.contains('大阪')]
+            elif stat_region == "京都":
+                df_stat = df_stat[df_stat['就業場所'].fillna('').str.contains('京都')]
+            elif stat_region == "なら":
+                df_stat = df_stat[df_stat['就業場所'].fillna('').str.contains('なら|奈良')]
+            elif stat_region == "それ以外":
+                df_stat = df_stat[~df_stat['就業場所'].fillna('').str.contains('大阪|京都|なら|奈良')]
+        # ▲▲▲ 追加箇所ここまで ▲▲▲
+
         if "1ヶ月以内" in stat_period and '受付年月日' in df_stat.columns:
             df_stat['date_calc'] = pd.to_datetime(df_stat['受付年月日'], errors='coerce')
             one_month_ago = pd.Timestamp.now() - pd.Timedelta(days=30)
             df_stat = df_stat[df_stat['date_calc'] >= one_month_ago]
             
         if df_stat.empty:
-            st.info("指定された期間の求人データがありません。")
-        else:
+            st.info("指定された期間・地域の求人データがありません。")        else:
             # --- 1. 基本指標（KPI）---
             col_s1, col_s2, col_s3 = st.columns(3)
             col_s1.metric("📦 総求人数", f"{len(df_stat)} 件")
