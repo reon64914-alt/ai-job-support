@@ -483,46 +483,40 @@ with tab_match:
                     if "①" in mode:
                         # 【モード①：最新求人マッチング】
                         if 'date_calc' in df_f.columns:
-                            # 1. 日付が新しい順（降順）に並び替え
                             df_mode1 = df_f.sort_values(by='date_calc', ascending=False)
-                            
-                            # 2. 直近1ヶ月（約30日）以内のデータに絞る
                             one_month_ago = pd.Timestamp.now() - pd.Timedelta(days=30)
                             df_mode1 = df_mode1[df_mode1['date_calc'] >= one_month_ago]
                             
-                            # ※もし1ヶ月以内の求人が少なすぎる場合は、最新50件をそのまま使うなどのフォールバック
                             if len(df_mode1) < 5:
                                 df_mode1 = df_f.sort_values(by='date_calc', ascending=False)
                         else:
                             df_mode1 = df_f
                             
-                        # 不要な計算用列を消してAIに渡す
                         data_to_pass = df_mode1.drop(columns=['date_calc'], errors='ignore').head(50)
                         
                         prompt = f"""あなたは就労移行支援事業所のベテラン支援員です。
 【利用者情報】特性:{disability}, 強み:{strengths}, 弱み:{weaknesses}, 訓練:{current_training}, 希望:{desired_job}
 【指示】
-1. まず冒頭で、利用者の特性と強みを表現するポジティブな【あなたのタイプ】（例：「集中力抜群のコツコツ職人タイプ」など）を示してください。
+1. まず冒頭で、利用者の特性と強みを表現するポジティブな【あなたのタイプ】を示してください。
 2. 提供データから最もマッチする求人を5件厳選してください。
-3. 各求人について、【AIマッチング度（例：85%）】の数値を算出して記載し、強みの活かし方と配慮事項を解説してください。
+3. 各求人について、【AIマッチング度】の数値を算出して記載し、強みの活かし方と配慮事項を解説してください。
 4. 最後に具体的な支援アドバイスを添えてください。
-※重要：求人を提案する際は、データにある【事業所名】と【職種】を一言一句そのまま正確に記載してください（省略や言い換えは厳禁）。
+※重要：確実なデータ照合のため、求人を提案する際はデータにある【求人番号】を必ず記載してください（例：「【求人番号: 12345】株式会社〇〇」）。
 【データ】\n{data_to_pass.to_csv(index=False)}"""
 
                     else:
                         # 【モード②：適職診断・アドバイス】
-                        # 全データから傾向を見るため、上から50件ではなく「ランダムに50件」抽出して多様な業種をAIに見せる
                         df_mode2 = df_f.sample(n=min(50, len(df_f)))
                         data_to_pass = df_mode2.drop(columns=['date_calc'], errors='ignore')
 
                         prompt = f"""あなたは就労移行支援のプロフェッショナルなキャリアコンサルタントです。
 【利用者情報】特性:{disability}, 強み:{strengths}, 弱み:{weaknesses}, 訓練:{current_training}, 希望:{desired_job}
 【指示】
-1. まず冒頭で、利用者の特性と強みを表現するポジティブな【あなたのタイプ（キャッチコピー）】（例：「集中力抜群のコツコツ職人タイプ」など）を提示してください。
+1. まず冒頭で、利用者の特性と強みを表現するポジティブな【あなたのタイプ】を提示してください。
 2. 特性と強みから適職を論理的に診断してください。
-3. 根拠として実在の求人を3件厳選し、各求人に【AIマッチング度（例：85%）】の数値を算出して添えながら解説してください。
+3. 根拠として実在の求人を3件厳選し、各求人に【AIマッチング度】の数値を添えて解説してください。
 4. 適職に就くため、明日から事業所で追加・重点化すべき訓練アクションプランを提案してください。
-※重要：求人を提案する際は、データにある【事業所名】と【職種】を一言一句そのまま正確に記載してください（省略や言い換えは厳禁）。
+※重要：確実なデータ照合のため、求人を提案する際はデータにある【求人番号】を必ず記載してください（例：「【求人番号: 12345】株式会社〇〇」）。
 【データ】\n{data_to_pass.to_csv(index=False)}"""
 
                     res = client.models.generate_content(
@@ -531,6 +525,9 @@ with tab_match:
                     )
                     st.session_state.ai_response = res.text
                     st.session_state.interview_advice = {}
+                    
+                    # ★修正ポイント：AIが実際に見た50件のデータをセッションに保存し、リストで使う
+                    st.session_state.context_df = data_to_pass 
                     
                     st.toast("✨ 分析が完了しました！", icon="🎉")
                 except Exception as e:
@@ -585,23 +582,37 @@ with tab_match:
         st.markdown("---")
         st.header("🏢 関連求人の詳細と面接対策")
         
-        df_f = st.session_state.filtered_df
+        # ★ 修正ポイント：AIが実際に判定したデータを呼び出す
+        if 'context_df' in st.session_state:
+            context_df = st.session_state.context_df
+        else:
+            context_df = st.session_state.filtered_df.head(50)
+            
         ai_text = st.session_state.ai_response
-        context_df = df_f.head(50) 
         
         matched_indices = []
         for idx, row in context_df.iterrows():
             company = str(row.get('事業所名', '')).strip()
             job_num = str(row.get('求人番号', '')).strip()
             
-            if (company != 'nan' and company != '' and company in ai_text) or \
-               (job_num != 'nan' and job_num != '' and job_num in ai_text):
+            # ★ 修正ポイント：「求人番号」と「表記揺れを除いた企業名」で強力にマッチング
+            match_job_num = (job_num != 'nan' and job_num != '' and job_num in ai_text)
+            
+            # 事業所名から「株式会社」などを抜いた核となる名前でも検索する（表記ブレ対策）
+            core_company = company.replace('株式会社', '').replace('有限会社', '').replace('合同会社', '').replace('(株)', '').replace('（株）', '').strip()
+            match_company = (core_company != '' and len(core_company) >= 2 and core_company in ai_text)
+            
+            if match_job_num or match_company:
                 matched_indices.append(idx)
         
         if matched_indices:
             matched_df = context_df.loc[matched_indices]
         else:
             matched_df = context_df.head(5)
+
+        # ----------------------------------------------------
+        # 以降の job_options = ... などのコードはそのまま残します
+        # ----------------------------------------------------
 
         job_options = matched_df['事業所名'].fillna('非公開').astype(str) + " / " + matched_df['職種'].fillna('不明').astype(str)
         
