@@ -306,9 +306,9 @@ with tab_stat:
             elif stat_region == "京都":
                 df_stat = df_stat[df_stat['就業場所'].fillna('').str.contains('京都')]
             elif stat_region == "なら":
-                df_stat = df_stat[df_stat['就業場所'].fillna('').str.contains('奈良')]
+                df_stat = df_stat[df_stat['就業場所'].fillna('').str.contains('なら|奈良')]
             elif stat_region == "それ以外":
-                df_stat = df_stat[~df_stat['就業場所'].fillna('').str.contains('大阪|京都|奈良')]
+                df_stat = df_stat[~df_stat['就業場所'].fillna('').str.contains('大阪|京都|なら|奈良')]
         # ▲▲▲ 追加箇所ここまで ▲▲▲
 
         if "1ヶ月以内" in stat_period and '受付年月日' in df_stat.columns:
