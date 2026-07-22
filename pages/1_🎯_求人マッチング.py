@@ -672,11 +672,15 @@ with tab_match:
                         except Exception as e:
                             st.error(f"面接対策の生成に失敗しました: {e}")
                             
-            # ▼▼▼ 個別のルート案内ボタンを追加 ▼▼▼
+           # ▼▼▼ 個別のルート案内ボタン（エラー対策版） ▼▼▼
             with col_btn3:
-                job_location = detail.get('就業場所', '')
-                if job_location and str(job_location) not in ('nan', '', '-', '未登録'):
+                # 確実に「文字列」に変換してから空白を削る（ここでエラーを防ぎます）
+                job_location = str(detail.get('就業場所', '')).strip()
+                
+                # 'nan' や 'None' などの無効な文字列を弾く
+                if job_location and job_location.lower() not in ('nan', 'none', '', '-', '未登録'):
                     import urllib.parse
+                    # 確実に文字列になった住所をURL用に変換
                     encoded_address = urllib.parse.quote(job_location)
                     home_addr = st.session_state.get('profile_home', '').strip()
                     
@@ -693,7 +697,7 @@ with tab_match:
                     st.link_button(btn_label, url=maps_url, use_container_width=True)
                 else:
                     st.button("🚃 就業場所データなし", disabled=True, use_container_width=True)
-            # ▲▲▲ 個別のルート案内ボタンここまで ▲▲▲
+            # ▲▲▲ 個別のルート案内ボタン ここまで ▲▲▲
             
             if selected_job in st.session_state.interview_advice:
                 st.markdown("<br>", unsafe_allow_html=True)
