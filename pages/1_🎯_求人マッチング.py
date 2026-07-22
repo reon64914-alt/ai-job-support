@@ -613,19 +613,31 @@ with tab_match:
         else:
             matched_df = context_df.head(5)
 
-# ▼▼▼ ここから一括表示機能の追加 ▼▼▼
+# ▼▼▼ 修正版の一括表示機能 ▼▼▼
         home_addr = st.session_state.get('profile_home', '').strip()
         if home_addr:
             import urllib.parse
+            import re
+            
             origin_enc = urllib.parse.quote(home_addr)
             
-            # 選ばれた企業の就業場所リストを作成（空欄や未登録は除外）
-            addresses = [str(addr) for addr in matched_df['就業場所'].tolist() if str(addr) not in ('nan', '', '-', '未登録')]
+            # 1. 住所リストの作成とクリーニング（エラー原因となるカッコ書き等の排除）
+            addresses = []
+            for addr in matched_df['就業場所'].tolist():
+                addr_str = str(addr).strip()
+                if addr_str not in ('nan', '', '-', '未登録', 'None'):
+                    # 「奈良市〇〇町（〇〇駅徒歩5分）」のようなカッコ内のアクセス情報を自動削除
+                    clean_addr = re.sub(r'[(（].*?[)）]', '', addr_str).strip()
+                    
+                    # 同じ住所の求人が複数ある場合は除外（ルートがループしてエラーになるのを防ぐ）
+                    if clean_addr and clean_addr not in addresses:
+                        addresses.append(clean_addr)
             
+            # 2. クリーニングした住所でURLを生成
             if addresses:
-                dest_enc = urllib.parse.quote(addresses[-1]) # リストの最後を目的地にする
+                dest_enc = urllib.parse.quote(addresses[-1]) # 最後を目的地に
                 if len(addresses) > 1:
-                    waypoints_enc = urllib.parse.quote("|".join(addresses[:-1])) # 残りを経由地にする
+                    waypoints_enc = urllib.parse.quote("|".join(addresses[:-1])) # 残りを経由地に
                     all_map_url = f"https://www.google.com/maps/dir/?api=1&origin={origin_enc}&destination={dest_enc}&waypoints={waypoints_enc}"
                 else:
                     all_map_url = f"https://www.google.com/maps/dir/?api=1&origin={origin_enc}&destination={dest_enc}"
@@ -633,7 +645,7 @@ with tab_match:
                 st.info("🗺️ **位置関係の確認:** 入力された自宅と、AIが選んだ求人の位置関係を地図で一括確認できます。（※経由地ルートとして表示されます）")
                 st.link_button("📍 自宅とおすすめ企業すべての位置関係を地図で見る", url=all_map_url, use_container_width=True)
                 st.markdown("<br>", unsafe_allow_html=True)
-        # ▲▲▲ 一括表示機能の追加ここまで ▲▲▲
+        # ▲▲▲ 修正版の一括表示機能 ここまで ▲▲▲
 
         # ----------------------------------------------------
         # 以降の job_options = ... などのコードはそのまま残します
