@@ -672,9 +672,9 @@ with tab_match:
                         except Exception as e:
                             st.error(f"面接対策の生成に失敗しました: {e}")
                             
-           # ▼▼▼ 個別のルート案内ボタン（エラー対策版） ▼▼▼
+          # ▼▼▼ 個別のルート案内ボタン（日本語強制・エラー対策版） ▼▼▼
             with col_btn3:
-                # 確実に「文字列」に変換してから空白を削る（ここでエラーを防ぎます）
+                # 確実に「文字列」に変換してから空白を削る
                 job_location = str(detail.get('就業場所', '')).strip()
                 
                 # 'nan' や 'None' などの無効な文字列を弾く
@@ -685,13 +685,13 @@ with tab_match:
                     home_addr = st.session_state.get('profile_home', '').strip()
                     
                     if home_addr:
-                        # 自宅が入力されていれば自宅起点
+                        # 自宅が入力されていれば自宅起点（最後に &hl=ja を追加）
                         encoded_home = urllib.parse.quote(home_addr)
-                        maps_url = f"https://www.google.com/maps/dir/?api=1&origin={encoded_home}&destination={encoded_address}"
-                        btn_label = "🚃 自宅からのルートを見る"
+                        maps_url = f"https://www.google.com/maps/dir/?api=1&origin={encoded_home}&destination={encoded_address}&hl=ja"
+                        btn_label = "🚃 自宅から企業までの最寄り駅のルートを見る"
                     else:
-                        # 未入力ならスマホ等のGPS現在地を起点にする
-                        maps_url = f"https://www.google.com/maps/dir/?api=1&origin=My+Location&destination={encoded_address}"
+                        # 未入力ならスマホ等のGPS現在地を起点にする（最後に &hl=ja を追加）
+                        maps_url = f"https://www.google.com/maps/dir/?api=1&origin=My+Location&destination={encoded_address}&hl=ja"
                         btn_label = "🚃 現在地からのルートを見る"
                         
                     st.link_button(btn_label, url=maps_url, use_container_width=True)
