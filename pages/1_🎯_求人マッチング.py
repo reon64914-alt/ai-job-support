@@ -439,8 +439,11 @@ with tab_match:
             strengths = st.text_area("✨ 得意なこと・強み", placeholder="例：単純作業の反復、正確なデータ入力、指示を忠実に守る", height=120, key="profile_strengths")
             weaknesses = st.text_area("⚠️ 苦手・配慮事項", placeholder="例：急な予定変更への対応、騒がしい場所での集中", height=120, key="profile_weaknesses")
         with col2:
-            current_training = st.text_area("🏫 現在の訓練内容", placeholder="例：Excelの基本操作、軽作業（ピッキング）", height=120, key="profile_training")
-            desired_job = st.text_area("🎯 希望する働き方", placeholder="例：一般事務、商品管理、週4日勤務希望", height=120, key="profile_job")
+            # ▼▼▼ 新たに追加 ▼▼▼
+            home_address = st.text_input("🏠 自宅住所・最寄り駅", placeholder="例：奈良県生駒市、または 〇〇駅", key="profile_home")
+            # ▲▲▲ 新たに追加 ▲▲▲
+            current_training = st.text_area("🏫 現在の訓練内容", placeholder="例：Excelの基本操作、軽作業（ピッキング）", height=75, key="profile_training")
+            desired_job = st.text_area("🎯 希望する働き方", placeholder="例：一般事務、商品管理、週4日勤務希望", height=75, key="profile_job")
 
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("### 🚀 AI分析の実行")
@@ -610,6 +613,28 @@ with tab_match:
         else:
             matched_df = context_df.head(5)
 
+# ▼▼▼ ここから一括表示機能の追加 ▼▼▼
+        home_addr = st.session_state.get('profile_home', '').strip()
+        if home_addr:
+            import urllib.parse
+            origin_enc = urllib.parse.quote(home_addr)
+            
+            # 選ばれた企業の就業場所リストを作成（空欄や未登録は除外）
+            addresses = [str(addr) for addr in matched_df['就業場所'].tolist() if str(addr) not in ('nan', '', '-', '未登録')]
+            
+            if addresses:
+                dest_enc = urllib.parse.quote(addresses[-1]) # リストの最後を目的地にする
+                if len(addresses) > 1:
+                    waypoints_enc = urllib.parse.quote("|".join(addresses[:-1])) # 残りを経由地にする
+                    all_map_url = f"https://www.google.com/maps/dir/?api=1&origin={origin_enc}&destination={dest_enc}&waypoints={waypoints_enc}"
+                else:
+                    all_map_url = f"https://www.google.com/maps/dir/?api=1&origin={origin_enc}&destination={dest_enc}"
+                
+                st.info("🗺️ **位置関係の確認:** 入力された自宅と、AIが選んだ求人の位置関係を地図で一括確認できます。（※経由地ルートとして表示されます）")
+                st.link_button("📍 自宅とおすすめ企業すべての位置関係を地図で見る", url=all_map_url, use_container_width=True)
+                st.markdown("<br>", unsafe_allow_html=True)
+        # ▲▲▲ 一括表示機能の追加ここまで ▲▲▲
+
         # ----------------------------------------------------
         # 以降の job_options = ... などのコードはそのまま残します
         # ----------------------------------------------------
@@ -637,7 +662,8 @@ with tab_match:
             st.info(f"**【募集要項：仕事の内容】**\n\n{detail.get('仕事の内容', '-')}")
             st.markdown('</div>', unsafe_allow_html=True)
 
-            col_btn1, col_btn2 = st.columns(2)
+           # 2列を3列に変更
+            col_btn1, col_btn2, col_btn3 = st.columns(3)
             with col_btn1:
                 if st.button("📝 仕事内容を「3行」で要約", use_container_width=True):
                     with st.spinner("要約を作成中..."):
@@ -665,6 +691,29 @@ with tab_match:
                             st.session_state.interview_advice[selected_job] = q_res.text
                         except Exception as e:
                             st.error(f"面接対策の生成に失敗しました: {e}")
+                            
+            # ▼▼▼ 個別のルート案内ボタンを追加 ▼▼▼
+            with col_btn3:
+                job_location = detail.get('就業場所', '')
+                if job_location and str(job_location) not in ('nan', '', '-', '未登録'):
+                    import urllib.parse
+                    encoded_address = urllib.parse.quote(job_location)
+                    home_addr = st.session_state.get('profile_home', '').strip()
+                    
+                    if home_addr:
+                        # 自宅が入力されていれば自宅起点
+                        encoded_home = urllib.parse.quote(home_addr)
+                        maps_url = f"https://www.google.com/maps/dir/?api=1&origin={encoded_home}&destination={encoded_address}"
+                        btn_label = "🚃 自宅からのルートを見る"
+                    else:
+                        # 未入力ならスマホ等のGPS現在地を起点にする
+                        maps_url = f"https://www.google.com/maps/dir/?api=1&origin=My+Location&destination={encoded_address}"
+                        btn_label = "🚃 現在地からのルートを見る"
+                        
+                    st.link_button(btn_label, url=maps_url, use_container_width=True)
+                else:
+                    st.button("🚃 就業場所データなし", disabled=True, use_container_width=True)
+            # ▲▲▲ 個別のルート案内ボタンここまで ▲▲▲
             
             if selected_job in st.session_state.interview_advice:
                 st.markdown("<br>", unsafe_allow_html=True)
