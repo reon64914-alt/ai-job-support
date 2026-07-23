@@ -672,17 +672,15 @@ with tab_match:
                         except Exception as e:
                             st.error(f"面接対策の生成に失敗しました: {e}")
                             
-          # ▼▼▼ 個別のルート案内ボタン（誤誘導防止・最強版） ▼▼▼
+          # ▼▼▼ 個別のルート案内ボタン（誤誘導防止 ＆ 削りすぎ防止の安全装置付き） ▼▼▼
             with col_btn3:
                 job_location = str(detail.get('就業場所', '')).strip()
                 company_name = str(detail.get('事業所名', '')).strip()
                 
-                # 'nan' や 'None' などの無効な文字列を弾く
                 if job_location and job_location.lower() not in ('nan', 'none', '', '-', '未登録'):
                     import urllib.parse
                     import re
                     
-                    # 企業名が非公開かどうかを判定する
                     is_hidden = False
                     if company_name.lower() in ('nan', 'none', '', '-', '非公開', '未登録') or '公開していません' in company_name:
                         is_hidden = True
@@ -691,42 +689,40 @@ with tab_match:
                         search_dest = job_location
                         btn_suffix = "『就業エリア周辺』までのルート(目安)"
                     else:
-                        # --- 🌟 追加：Googleマップの誤誘導を防ぐためのキーワードクリーニング ---
                         search_company = company_name
                         
-                        # ① 企業名の先頭に都道府県名があれば削除（例:「東京都〇〇」→「〇〇」）
+                        # ① 先に「株式会社」などの法人格を削除
+                        search_company = re.sub(r'(株式会社|有限会社|合同会社|一般社団法人|社会福祉法人|\(株\)|（株）)', '', search_company).strip()
+                        
+                        # ② 企業名の先頭に都道府県名があれば削除するが、「安全装置」を作動させる
                         prefs = ['北海道','青森県','岩手県','宮城県','秋田県','山形県','福島県','茨城県','栃木県','群馬県','埼玉県','千葉県','東京都','神奈川県','新潟県','富山県','石川県','福井県','山梨県','長野県','岐阜県','静岡県','愛知県','三重県','滋賀県','京都府','大阪府','兵庫県','奈良県','和歌山県','鳥取県','島根県','岡山県','広島県','山口県','徳島県','香川県','愛媛県','高知県','福岡県','佐賀県','長崎県','熊本県','大分県','宮崎県','鹿児島県','沖縄県']
+                        
                         for pref in prefs:
                             if search_company.startswith(pref):
-                                search_company = search_company[len(pref):]
+                                temp_name = search_company[len(pref):].strip()
+                                
+                                # ★安全装置：削ったあとの名前が「3文字以上」残る場合だけ実際に削る
+                                # （例：「大阪府印刷」→「印刷」(2文字) なので削るのをやめて「大阪府印刷」のままにする）
+                                if len(temp_name) >= 3:
+                                    search_company = temp_name
                                 break
                         
-                        # ② 株式会社などの法人格を削除し、純粋な名前だけにする
-                        search_company = re.sub(r'(株式会社|有限会社|合同会社|一般社団法人|社会福祉法人|\(株\)|（株）)', '', search_company).strip()
-                        # ------------------------------------------------------------------
-                        
-                        # クリーニングした名前で検索させる（例：「大阪市北区 チャレンジドプラスＴＯＰＰＡＮ」）
                         search_dest = f"{job_location} {search_company}"
                         btn_suffix = "企業までのルートを調べる"
                         
-                    # URL用に変換
                     encoded_address = urllib.parse.quote(search_dest)
                     home_addr = st.session_state.get('profile_home', '').strip()
                     
                     if home_addr:
-                        # 自宅が入力されていれば自宅起点
                         encoded_home = urllib.parse.quote(home_addr)
                         maps_url = f"https://www.google.com/maps/dir/?api=1&origin={encoded_home}&destination={encoded_address}&hl=ja"
                         btn_label = f"🚃 自宅から{btn_suffix}"
                     else:
-                        # 未入力なら現在地起点
                         maps_url = f"https://www.google.com/maps/dir/?api=1&origin=My+Location&destination={encoded_address}&hl=ja"
                         btn_label = f"📍 現在地から{btn_suffix}"
                         
-                    # ボタンの表示
                     st.link_button(btn_label, url=maps_url, use_container_width=True)
                     
-                    # 非公開の場合のみ、ボタンの下に小さな注意書きを出す
                     if is_hidden:
                         st.caption("※企業名非公開のため、エリア中心部への大まかなルートです。")
                 else:
