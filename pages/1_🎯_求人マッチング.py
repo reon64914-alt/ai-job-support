@@ -672,7 +672,7 @@ with tab_match:
                         except Exception as e:
                             st.error(f"面接対策の生成に失敗しました: {e}")
                             
-          # ▼▼▼ 個別のルート案内ボタン（企業名検索・非公開対応版） ▼▼▼
+          # ▼▼▼ 個別のルート案内ボタン（誤誘導防止・最強版） ▼▼▼
             with col_btn3:
                 job_location = str(detail.get('就業場所', '')).strip()
                 company_name = str(detail.get('事業所名', '')).strip()
@@ -680,20 +680,33 @@ with tab_match:
                 # 'nan' や 'None' などの無効な文字列を弾く
                 if job_location and job_location.lower() not in ('nan', 'none', '', '-', '未登録'):
                     import urllib.parse
+                    import re
                     
                     # 企業名が非公開かどうかを判定する
                     is_hidden = False
                     if company_name.lower() in ('nan', 'none', '', '-', '非公開', '未登録') or '公開していません' in company_name:
                         is_hidden = True
                     
-                    # 目的地（検索キーワード）とボタンのテキストを決定
                     if is_hidden:
-                        # 非公開の場合は住所（エリア）のみで検索
                         search_dest = job_location
                         btn_suffix = "『就業エリア周辺』までのルート(目安)"
                     else:
-                        # 公開されている場合は「住所＋企業名」で精度の高いピンポイント検索
-                        search_dest = f"{job_location} {company_name}"
+                        # --- 🌟 追加：Googleマップの誤誘導を防ぐためのキーワードクリーニング ---
+                        search_company = company_name
+                        
+                        # ① 企業名の先頭に都道府県名があれば削除（例:「東京都〇〇」→「〇〇」）
+                        prefs = ['北海道','青森県','岩手県','宮城県','秋田県','山形県','福島県','茨城県','栃木県','群馬県','埼玉県','千葉県','東京都','神奈川県','新潟県','富山県','石川県','福井県','山梨県','長野県','岐阜県','静岡県','愛知県','三重県','滋賀県','京都府','大阪府','兵庫県','奈良県','和歌山県','鳥取県','島根県','岡山県','広島県','山口県','徳島県','香川県','愛媛県','高知県','福岡県','佐賀県','長崎県','熊本県','大分県','宮崎県','鹿児島県','沖縄県']
+                        for pref in prefs:
+                            if search_company.startswith(pref):
+                                search_company = search_company[len(pref):]
+                                break
+                        
+                        # ② 株式会社などの法人格を削除し、純粋な名前だけにする
+                        search_company = re.sub(r'(株式会社|有限会社|合同会社|一般社団法人|社会福祉法人|\(株\)|（株）)', '', search_company).strip()
+                        # ------------------------------------------------------------------
+                        
+                        # クリーニングした名前で検索させる（例：「大阪市北区 チャレンジドプラスＴＯＰＰＡＮ」）
+                        search_dest = f"{job_location} {search_company}"
                         btn_suffix = "企業までのルートを調べる"
                         
                     # URL用に変換
