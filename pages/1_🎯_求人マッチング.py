@@ -672,29 +672,50 @@ with tab_match:
                         except Exception as e:
                             st.error(f"面接対策の生成に失敗しました: {e}")
                             
-          # ▼▼▼ 個別のルート案内ボタン（日本語強制・エラー対策版） ▼▼▼
+          # ▼▼▼ 個別のルート案内ボタン（企業名検索・非公開対応版） ▼▼▼
             with col_btn3:
-                # 確実に「文字列」に変換してから空白を削る
                 job_location = str(detail.get('就業場所', '')).strip()
+                company_name = str(detail.get('事業所名', '')).strip()
                 
                 # 'nan' や 'None' などの無効な文字列を弾く
                 if job_location and job_location.lower() not in ('nan', 'none', '', '-', '未登録'):
                     import urllib.parse
-                    # 確実に文字列になった住所をURL用に変換
-                    encoded_address = urllib.parse.quote(job_location)
+                    
+                    # 企業名が非公開かどうかを判定する
+                    is_hidden = False
+                    if company_name.lower() in ('nan', 'none', '', '-', '非公開', '未登録') or '公開していません' in company_name:
+                        is_hidden = True
+                    
+                    # 目的地（検索キーワード）とボタンのテキストを決定
+                    if is_hidden:
+                        # 非公開の場合は住所（エリア）のみで検索
+                        search_dest = job_location
+                        btn_suffix = "『就業エリア周辺』までのルート(目安)"
+                    else:
+                        # 公開されている場合は「住所＋企業名」で精度の高いピンポイント検索
+                        search_dest = f"{job_location} {company_name}"
+                        btn_suffix = "企業までのルートを調べる"
+                        
+                    # URL用に変換
+                    encoded_address = urllib.parse.quote(search_dest)
                     home_addr = st.session_state.get('profile_home', '').strip()
                     
                     if home_addr:
-                        # 自宅が入力されていれば自宅起点（最後に &hl=ja を追加）
+                        # 自宅が入力されていれば自宅起点
                         encoded_home = urllib.parse.quote(home_addr)
                         maps_url = f"https://www.google.com/maps/dir/?api=1&origin={encoded_home}&destination={encoded_address}&hl=ja"
-                        btn_label = "🚃 就業エリア周辺までのルートを見る"
+                        btn_label = f"🚃 自宅から{btn_suffix}"
                     else:
-                        # 未入力ならスマホ等のGPS現在地を起点にする（最後に &hl=ja を追加）
+                        # 未入力なら現在地起点
                         maps_url = f"https://www.google.com/maps/dir/?api=1&origin=My+Location&destination={encoded_address}&hl=ja"
-                        btn_label = "🚃 現在地からのルートを見る"
+                        btn_label = f"📍 現在地から{btn_suffix}"
                         
+                    # ボタンの表示
                     st.link_button(btn_label, url=maps_url, use_container_width=True)
+                    
+                    # 非公開の場合のみ、ボタンの下に小さな注意書きを出す
+                    if is_hidden:
+                        st.caption("※企業名非公開のため、エリア中心部への大まかなルートです。")
                 else:
                     st.button("🚃 就業場所データなし", disabled=True, use_container_width=True)
             # ▲▲▲ 個別のルート案内ボタン ここまで ▲▲▲
