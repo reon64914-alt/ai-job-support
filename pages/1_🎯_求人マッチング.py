@@ -688,7 +688,7 @@ with tab_match:
                         # 自宅が入力されていれば自宅起点（最後に &hl=ja を追加）
                         encoded_home = urllib.parse.quote(home_addr)
                         maps_url = f"https://www.google.com/maps/dir/?api=1&origin={encoded_home}&destination={encoded_address}&hl=ja"
-                        btn_label = "🚃 就業場所までのルートを見る"
+                        btn_label = "🚃 就業エリア周辺までのルートを見る"
                     else:
                         # 未入力ならスマホ等のGPS現在地を起点にする（最後に &hl=ja を追加）
                         maps_url = f"https://www.google.com/maps/dir/?api=1&origin=My+Location&destination={encoded_address}&hl=ja"
