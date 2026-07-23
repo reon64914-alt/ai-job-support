@@ -575,7 +575,6 @@ with tab_match:
                 label="📄 提案書をダウンロード (PDF保存・印刷用)", 
                 data=report_html, 
                 file_name=f"AI提案レポート_{datetime.now().strftime('%Y%m%d')}.html", 
-                mime="text/html",
                 use_container_width=True
             )
         with col_copy:
